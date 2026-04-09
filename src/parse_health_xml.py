@@ -1,13 +1,17 @@
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from lxml import etree as ET
 from config import XML_FILE
+
 
 def extract_records(xml_path=XML_FILE):
     """
     Lädt alle Record-Elemente aus der Apple Health XML.
     Gibt eine Liste von Dictionaries zurück.
+
+    Jedes Dict enthält: type, value, unit, startDate, endDate.
     """
     records = []
 
@@ -17,8 +21,8 @@ def extract_records(xml_path=XML_FILE):
     except ET.XMLSyntaxError as e:
         print(f"Fehler beim Parsen der XML: {e}")
         return records
-    except FileNotFoundError:
-        print(f"Datei nicht gefunden: {xml_path}")
+    except OSError as e:
+        print(f"Datei nicht gefunden oder nicht lesbar: {e}")
         return records
 
     for record in root.iter("Record"):
@@ -44,14 +48,15 @@ def filter_records(records, record_type):
         HKCategoryTypeIdentifierSleepAnalysis
         HKQuantityTypeIdentifierAppleExerciseTime
     """
-    filtered = [r for r in records if r["type"] == record_type]
+    filtered = [r for r in records if r.get("type") == record_type]
     print(f"{len(filtered)} Records vom Typ '{record_type}' gefunden.")
     return filtered
 
+
 if __name__ == "__main__":
     records = extract_records()
-    AETrecords = filter_records(records, "HKQuantityTypeIdentifierAppleExerciseTime")
-    SArecords = filter_records(records, "HKCategoryTypeIdentifierSleepAnalysis")
-    RHRrecords = filter_records(records, "HKQuantityTypeIdentifierRestingHeartRate")
-    HRVrecords = filter_records(records, "HKQuantityTypeIdentifierHeartRateVariabilitySDNN")
+    aet_records = filter_records(records, "HKQuantityTypeIdentifierAppleExerciseTime")
+    sa_records  = filter_records(records, "HKCategoryTypeIdentifierSleepAnalysis")
+    rhr_records = filter_records(records, "HKQuantityTypeIdentifierRestingHeartRate")
+    hrv_records = filter_records(records, "HKQuantityTypeIdentifierHeartRateVariabilitySDNN")
     print(records[:3])

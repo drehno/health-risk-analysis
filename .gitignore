@@ -8,9 +8,8 @@ build/
 venv/
 .venv/
 
-# Data
+# Data – nur Rohdaten ignorieren (persönliche Gesundheitsdaten)
 data/raw/
-data/processed/
 
 # Jupyter
 .ipynb_checkpoints/
