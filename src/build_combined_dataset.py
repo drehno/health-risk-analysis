@@ -4,6 +4,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
 from config import DATA_PROCESSED
+from feature_engineering import add_all_features
 
 
 def load_daily_metrics() -> pd.DataFrame:
@@ -57,38 +58,6 @@ def merge_datasets(df_health: pd.DataFrame, df_manual: pd.DataFrame) -> pd.DataF
     return df
 
 
-def add_baselines(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Adds personal baseline features using rolling windows.
-
-    All baselines are computed relative to the individual's own history rather
-    than population norms, making them meaningful regardless of absolute values.
-
-    Added columns:
-        resting_hr_7d_mean   – 7-day rolling mean of resting heart rate
-        resting_hr_deviation – deviation from the 7-day mean
-        hrv_7d_mean          – 7-day rolling mean of HRV
-        hrv_deviation        – deviation from the 7-day mean
-        sleep_3d_avg         – 3-day rolling mean of sleep hours
-        workout_load_7d_sum  – total workout minutes over the past 7 days
-
-    min_periods=3 for 7-day windows: baseline is only computed once at least
-    3 observations are available, avoiding misleading single-day "baselines".
-    """
-    df = df.copy()
-    df = df.sort_values("date").reset_index(drop=True)
-
-    df["resting_hr_7d_mean"] = df["resting_hr"].rolling(window=7, min_periods=3).mean()
-    df["resting_hr_deviation"] = df["resting_hr"] - df["resting_hr_7d_mean"]
-
-    df["hrv_7d_mean"] = df["hrv"].rolling(window=7, min_periods=3).mean()
-    df["hrv_deviation"] = df["hrv"] - df["hrv_7d_mean"]
-
-    df["sleep_3d_avg"] = df["sleep_hours"].rolling(window=3, min_periods=1).mean()
-    df["workout_load_7d_sum"] = df["workout_minutes"].rolling(window=7, min_periods=1).sum()
-
-    return df
-
 
 def save_combined(df: pd.DataFrame) -> None:
     """Saves the combined dataset with baselines to CSV."""
@@ -103,7 +72,7 @@ if __name__ == "__main__":
     df_manual = load_manual_inputs()
 
     df = merge_datasets(df_health, df_manual)
-    df = add_baselines(df)
+    df = add_all_features(df)
 
     print("\nFirst rows with baselines:")
     print(df.head(10).to_string())
