@@ -6,12 +6,12 @@ from lxml import etree as ET
 from config import XML_FILE
 
 
-def extract_records(xml_path=XML_FILE):
+def extract_records(xml_path=XML_FILE) -> list:
     """
-    Lädt alle Record-Elemente aus der Apple Health XML.
-    Gibt eine Liste von Dictionaries zurück.
+    Parses all Record elements from an Apple Health export XML.
 
-    Jedes Dict enthält: type, value, unit, startDate, endDate.
+    Returns a list of dicts with keys: type, value, unit, startDate, endDate.
+    Returns an empty list if the file is missing or malformed.
     """
     records = []
 
@@ -19,10 +19,10 @@ def extract_records(xml_path=XML_FILE):
         tree = ET.parse(xml_path)
         root = tree.getroot()
     except ET.XMLSyntaxError as e:
-        print(f"Fehler beim Parsen der XML: {e}")
+        print(f"XML parse error: {e}")
         return records
     except OSError as e:
-        print(f"Datei nicht gefunden oder nicht lesbar: {e}")
+        print(f"Could not open file: {e}")
         return records
 
     for record in root.iter("Record"):
@@ -34,29 +34,29 @@ def extract_records(xml_path=XML_FILE):
             "endDate":   record.get("endDate"),
         })
 
-    print(f"{len(records)} Records geladen.")
+    print(f"{len(records)} records loaded.")
     return records
 
 
-def filter_records(records, record_type):
+def filter_records(records: list, record_type: str) -> list:
     """
-    Filtert Records nach einem bestimmten HK-Typ.
+    Filters a list of record dicts by Apple Health type identifier.
 
-    Beispiel-Typen:
+    Common types:
         HKQuantityTypeIdentifierRestingHeartRate
         HKQuantityTypeIdentifierHeartRateVariabilitySDNN
         HKCategoryTypeIdentifierSleepAnalysis
         HKQuantityTypeIdentifierAppleExerciseTime
     """
     filtered = [r for r in records if r.get("type") == record_type]
-    print(f"{len(filtered)} Records vom Typ '{record_type}' gefunden.")
+    print(f"{len(filtered)} records of type '{record_type}'.")
     return filtered
 
 
 if __name__ == "__main__":
     records = extract_records()
-    aet_records = filter_records(records, "HKQuantityTypeIdentifierAppleExerciseTime")
-    sa_records  = filter_records(records, "HKCategoryTypeIdentifierSleepAnalysis")
-    rhr_records = filter_records(records, "HKQuantityTypeIdentifierRestingHeartRate")
-    hrv_records = filter_records(records, "HKQuantityTypeIdentifierHeartRateVariabilitySDNN")
+    filter_records(records, "HKQuantityTypeIdentifierAppleExerciseTime")
+    filter_records(records, "HKCategoryTypeIdentifierSleepAnalysis")
+    filter_records(records, "HKQuantityTypeIdentifierRestingHeartRate")
+    filter_records(records, "HKQuantityTypeIdentifierHeartRateVariabilitySDNN")
     print(records[:3])
