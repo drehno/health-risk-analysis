@@ -58,7 +58,6 @@ def merge_datasets(df_health: pd.DataFrame, df_manual: pd.DataFrame) -> pd.DataF
     return df
 
 
-
 def save_combined(df: pd.DataFrame) -> None:
     """Saves the combined dataset with baselines to CSV."""
     DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
