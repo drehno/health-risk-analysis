@@ -9,6 +9,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 
 from config import DATA_PROCESSED
+from evaluate_model import print_report, save_confusion_matrix
 from feature_engineering import add_all_features
 from risk_score import add_risk_score
 
@@ -23,10 +24,7 @@ FEATURES = [
 ]
 TARGET = "risk_level"
 
-# Chronological split ratio: first 80% of days for training, last 20% for testing.
 TRAIN_RATIO = 0.8
-
-# Refuse to train on datasets smaller than this to avoid misleading results.
 MIN_ROWS = 20
 
 
@@ -67,7 +65,7 @@ def split_chronological(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 def build_pipeline(
     df_train: pd.DataFrame,
     df_test: pd.DataFrame,
-) -> tuple[SimpleImputer, LogisticRegression, pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+) -> tuple[SimpleImputer, LogisticRegression, pd.DataFrame, pd.Series]:
     """
     Fits an imputer and a logistic regression classifier on the training set.
 
@@ -75,7 +73,7 @@ def build_pipeline(
     test set, preventing any information from the test set from leaking into
     the training process.
 
-    Returns imputer, model, X_train_imp, y_train, X_test_imp, y_test.
+    Returns imputer, model, X_test_imp, y_test.
     """
     X_train = df_train[FEATURES]
     y_train = df_train[TARGET]
@@ -83,20 +81,16 @@ def build_pipeline(
     y_test  = df_test[TARGET]
 
     imputer = SimpleImputer(strategy="median")
-    X_train_imp = pd.DataFrame(
-        imputer.fit_transform(X_train), columns=FEATURES
-    )
-    X_test_imp = pd.DataFrame(
-        imputer.transform(X_test), columns=FEATURES
-    )
+    X_train_imp = pd.DataFrame(imputer.fit_transform(X_train), columns=FEATURES)
+    X_test_imp  = pd.DataFrame(imputer.transform(X_test),      columns=FEATURES)
 
     # class_weight="balanced" compensates for the natural scarcity of high-risk
-    # days in the dataset, preventing the model from simply predicting "low"
-    # for everything and achieving high accuracy by doing so.
+    # days, preventing the model from achieving high accuracy by predicting "low"
+    # for everything.
     model = LogisticRegression(class_weight="balanced", max_iter=1000)
     model.fit(X_train_imp, y_train)
 
-    return imputer, model, X_train_imp, y_train, X_test_imp, y_test
+    return imputer, model, X_test_imp, y_test
 
 
 def save_artifacts(imputer: SimpleImputer, model: LogisticRegression) -> None:
@@ -109,7 +103,7 @@ def save_artifacts(imputer: SimpleImputer, model: LogisticRegression) -> None:
 
 def train(df: pd.DataFrame) -> tuple[SimpleImputer, LogisticRegression]:
     """
-    Full training pipeline: split → impute → fit → save.
+    Full training pipeline: split → impute → fit → evaluate → save.
 
     Returns the fitted imputer and model.
     """
@@ -121,19 +115,19 @@ def train(df: pd.DataFrame) -> tuple[SimpleImputer, LogisticRegression]:
 
     df_train, df_test = split_chronological(df)
     print(f"Train: {len(df_train)} days | Test: {len(df_test)} days")
-    print(f"Label distribution (train):\n{df_train[TARGET].value_counts()}")
+    print(f"Label distribution (train):\n{df_train[TARGET].value_counts()}\n")
 
-    imputer, model, _, _, X_test_imp, y_test = build_pipeline(df_train, df_test)
-
+    imputer, model, X_test_imp, y_test = build_pipeline(df_train, df_test)
     y_pred = model.predict(X_test_imp)
-    print(f"\nTest accuracy: {(y_pred == y_test.values).mean():.2%}")
-    print(f"Label distribution (test predictions): {pd.Series(y_pred).value_counts().to_dict()}")
 
+    print_report(y_test, y_pred)
+    save_confusion_matrix(y_test, y_pred, DATA_PROCESSED / "confusion_matrix.png")
     save_artifacts(imputer, model)
+
     return imputer, model
 
 
 if __name__ == "__main__":
     df = load_dataset()
-    print(f"Dataset: {len(df)} days | Features: {FEATURES} | Target: {TARGET}")
+    print(f"Dataset: {len(df)} days | Features: {FEATURES} | Target: {TARGET}\n")
     train(df)
